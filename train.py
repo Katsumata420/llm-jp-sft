@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Union
 
 import torch
@@ -14,8 +14,8 @@ from transformers import (
 )
 from trl import DataCollatorForCompletionOnlyLM, SFTTrainer
 
-from .data_collator import DataCollatorForCompletionOnlyLMWithMultiTemplate
-from .templates import TEMPLATES
+from data_collator import DataCollatorForCompletionOnlyLMWithMultiTemplate
+from templates import TEMPLATES
 
 disable_caching()
 
@@ -40,7 +40,7 @@ class SFTTrainingArguments:
     peft_lora_r: int = 8
     peft_lora_alpha: int = 32
     peft_lora_dropout: float = 0.05
-    templates: list[str] = ["alpaca"]
+    templates: list[str] = field(default_factory=lambda: ["alpaca"])
 
     def __post_init__(self):
         if self.load_in_8bit and self.load_in_4bit:
