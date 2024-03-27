@@ -151,19 +151,22 @@ def main() -> None:
         )
     else:
         try:
-            templates = [TEMPLATES[template] for template in sft_training_args.templates]
+            templates = {template: TEMPLATES[template] for template in sft_training_args.templates}
         except KeyError as e:
             raise ValueError(f"Template '{e}' is not found") from e
 
-        response_ids = [tokenizer.encode(template.response_prefix, add_special_tokens=False)[1:] for template in templates]
-        instruction_ids = [
-            (
+        response_ids = {
+            template_name: tokenizer.encode(template.response_prefix, add_special_tokens=False)[1:]
+            for template_name, template in templates.items()
+        }
+        instruction_ids = {
+            template_name: (
                 tokenizer.encode(template.instruction_prefix, add_special_tokens=False)[1:]
                 if template.instruction_prefix is not None
                 else None
             )
-            for template in templates
-        ]
+            for template_name, template in templates.items()
+        }
 
         collator = DataCollatorForCompletionOnlyLMWithMultiTemplate(
             instruction_templates=instruction_ids,

@@ -13,8 +13,10 @@ class DataCollatorForCompletionOnlyLMWithMultiTemplate(DataCollatorForLanguageMo
     trl.DataCollatorForCompletionOnlyLM: https://github.com/huggingface/trl/blob/6c2f829bb7408660b0e581cde56fbff0980b9d7b/trl/trainer/utils.py#L69
 
     Args:
-        response_templates (Union(List[str], List[List[int]])): A list of response templates.
-        instruction_templates (Optional[Union(List[str], List[List[int]]])): A list of instruction templates.
+        response_templates (Union(Dict[str, str], Dict[str, List[int]])): A dict of response templates.
+            key: template name, value: token ids.
+        instruction_templates (Optional[Union(Dict[str, str], Dict[str, List[int]]])): A dict of instruction templates.
+            key: template name, value: token ids.
         mlm (bool): Whether to use masked language model.
             Note that this argument is not used in this class. It is just for compatibility.
         ignore_index (int): The token index to ignore when computing the loss.
@@ -22,8 +24,8 @@ class DataCollatorForCompletionOnlyLMWithMultiTemplate(DataCollatorForLanguageMo
 
     def __init__(
         self,
-        response_templates: Union[List[str], List[List[int]]],
-        instruction_templates: Optional[Union[List[str], List[List[int]]]] = None,
+        response_templates: Union[Dict[str, str], Dict[str, List[int]]],
+        instruction_templates: Optional[Union[Dict[str, str], Dict[str, List[int]]]] = None,
         *args,
         mlm: bool = False,
         ignore_index: int = -100,
@@ -32,14 +34,14 @@ class DataCollatorForCompletionOnlyLMWithMultiTemplate(DataCollatorForLanguageMo
         super().__init__(*args, mlm=mlm, **kwargs)
 
         self.instruction_templates = instruction_templates
-        if isinstance(instruction_templates[0], str):
-            self.instructions_token_ids = [self.tokenizer.encode(template, add_special_tokens=False) for template in self.instruction_templates]
+        if isinstance(list(instruction_templates.values())[0], str):
+            self.instructions_token_ids = {template_name: self.tokenizer.encode(template, add_special_tokens=False) for template_name, template in self.instruction_templates.items()}
         else:
             self.instructions_token_ids = instruction_templates
 
         self.response_templates = response_templates
-        if isinstance(response_templates[0], str):
-            self.responses_token_ids = [self.tokenizer.encode(template, add_special_tokens=False) for template in self.response_templates]
+        if isinstance(list(response_templates.values())[0], str):
+            self.responses_token_ids = {template_name: self.tokenizer.encode(template, add_special_tokens=False) for template_name, template in self.response_templates.items()}
         else:
             self.responses_token_ids = response_templates
 
@@ -60,14 +62,16 @@ class DataCollatorForCompletionOnlyLMWithMultiTemplate(DataCollatorForLanguageMo
             for i in range(len(examples)):
                 response_token_ids_start_idx: Optional[int] = None
 
-                for response_token_ids in self.responses_token_ids:
-                    for idx in np.where(batch["labels"][i] == response_token_ids[0])[0]:
-                        if (
-                            response_token_ids
-                            == batch["labels"][i][idx : idx + len(response_token_ids)].tolist()
-                        ):
-                            response_token_ids_start_idx = idx
-                            break
+                prompt_type = examples["prompt_type"][i]
+                target_template = self.responses_token_ids.get(prompt_type)
+                assert target_template is not None, f"Template '{prompt_type}' is not found"
+
+                for idx in np.where(batch["labels"][i] == target_template[0])[0]:
+                    if (
+                        target_template
+                        == batch["labels"][i][idx : idx + len(target_template)].tolist()
+                    ):
+                        response_token_ids_start_idx = idx
 
                 if response_token_ids_start_idx is None:
                     warnings.warn(
@@ -78,7 +82,7 @@ class DataCollatorForCompletionOnlyLMWithMultiTemplate(DataCollatorForLanguageMo
                     )
                     batch["labels"][i, :] = self.ignore_index
                 else:
-                    response_token_ids_end_idx = response_token_ids_start_idx + len(response_token_ids)
+                    response_token_ids_end_idx = response_token_ids_start_idx + len(target_template)
 
                     batch["labels"][i, :response_token_ids_end_idx] = self.ignore_index
 
@@ -87,18 +91,18 @@ class DataCollatorForCompletionOnlyLMWithMultiTemplate(DataCollatorForLanguageMo
                 response_token_ids_idxs: List[int] = []  # end idxs
                 human_token_ids_idxs: List[int] = []  # start idxs
 
-                # find response token ids
-                for response_token_ids in self.responses_token_ids:
-                    for assistant_idx in np.where(batch["labels"][i] == response_token_ids[0])[0]:
-                        if (
-                            response_token_ids
-                            == batch["labels"][i][assistant_idx : assistant_idx + len(response_token_ids)].tolist()
-                        ):
-                            response_token_ids_idxs.append(assistant_idx + len(response_token_ids))
+                prompt_type = examples["prompt_type"][i]
+                target_template = self.responses_token_ids.get(prompt_type)
+                assert target_template is not None, f"Template '{prompt_type}' is not found"
 
-                    # break if we found the current response tokens
-                    if len(response_token_ids_idxs) != 0:
-                        break
+                # find response token ids
+                for assistant_idx in np.where(batch["labels"][i] == target_template[0])[0]:
+                    if (
+                        target_template
+                        == batch["labels"][i][assistant_idx : assistant_idx + len(target_template)].tolist()
+                    ):
+                        response_token_ids_idxs.append(assistant_idx + len(target_template))
+
 
                 if len(response_token_ids_idxs) == 0:
                     warnings.warn(
@@ -109,16 +113,13 @@ class DataCollatorForCompletionOnlyLMWithMultiTemplate(DataCollatorForLanguageMo
                     )
                     batch["labels"][i, :] = self.ignore_index
 
-                # find instruction token ids
-                multi_human_token_ids = self.instructions_token_ids
-                for human_token_ids in multi_human_token_ids:
-                    for human_idx in np.where(batch["labels"][i] == human_token_ids[0])[0]:
-                        if human_token_ids == batch["labels"][i][human_idx : human_idx + len(human_token_ids)].tolist():
-                            human_token_ids_idxs.append(human_idx)
+                target_template = self.instructions_token_ids.get(prompt_type)
+                assert target_template is not None, f"Template '{prompt_type}' is not found"
 
-                    # break if we found the current instruction tokens
-                    if len(human_token_ids_idxs) != 0:
-                        break
+                # find instruction token ids
+                for human_idx in np.where(batch["labels"][i] == target_template[0])[0]:
+                    if target_template == batch["labels"][i][human_idx : human_idx + len(target_template)].tolist():
+                        human_token_ids_idxs.append(human_idx)
 
                 if len(human_token_ids_idxs) == 0:
                     warnings.warn(
