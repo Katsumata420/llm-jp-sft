@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Union
 
 import torch
 from peft import LoraConfig
@@ -13,6 +13,9 @@ from transformers import (
     BitsAndBytesConfig,
 )
 from trl import DataCollatorForCompletionOnlyLM, SFTTrainer
+
+from .data_collator import DataCollatorForCompletionOnlyLMWithMultiTemplate
+from .templates import TEMPLATES
 
 disable_caching()
 
@@ -37,6 +40,7 @@ class SFTTrainingArguments:
     peft_lora_r: int = 8
     peft_lora_alpha: int = 32
     peft_lora_dropout: float = 0.05
+    templates: list[str] = ["alpaca"]
 
     def __post_init__(self):
         if self.load_in_8bit and self.load_in_4bit:
@@ -129,13 +133,43 @@ def main() -> None:
         eval_dataset = None
 
     logger.info("Formatting prompts")
-    instruction_ids = tokenizer.encode("\n\n### 指示:\n", add_special_tokens=False)[1:]
-    response_ids = tokenizer.encode("\n\n### 応答:\n", add_special_tokens=False)[1:]
-    collator = DataCollatorForCompletionOnlyLM(
-        instruction_template=instruction_ids,
-        response_template=response_ids,
-        tokenizer=tokenizer,
-    )
+    collator: Union[DataCollatorForCompletionOnlyLM, DataCollatorForCompletionOnlyLMWithMultiTemplate]
+    if len(sft_training_args.templates) == 1:
+        template_data = TEMPLATES.get(sft_training_args.templates[0])
+        assert template_data is not None, f"Template '{sft_training_args.templates[0]}' is not found"
+
+        response_ids = tokenizer.encode(template_data.response_prefix, add_special_tokens=False)[1:]
+        if template_data.instruction_prefix is not None:
+            instruction_ids = tokenizer.encode(template_data.instruction_prefix, add_special_tokens=False)[1:]
+        else:
+            instruction_ids = None
+
+        collator = DataCollatorForCompletionOnlyLM(
+            instruction_template=instruction_ids,
+            response_template=response_ids,
+            tokenizer=tokenizer,
+        )
+    else:
+        try:
+            templates = [TEMPLATES[template] for template in sft_training_args.templates]
+        except KeyError as e:
+            raise ValueError(f"Template '{e}' is not found") from e
+
+        response_ids = [tokenizer.encode(template.response_prefix, add_special_tokens=False)[1:] for template in templates]
+        instruction_ids = [
+            (
+                tokenizer.encode(template.instruction_prefix, add_special_tokens=False)[1:]
+                if template.instruction_prefix is not None
+                else None
+            )
+            for template in templates
+        ]
+
+        collator = DataCollatorForCompletionOnlyLMWithMultiTemplate(
+            instruction_templates=instruction_ids,
+            response_templates=response_ids,
+            tokenizer=tokenizer,
+        )
 
     logger.info(f"Loading model from {sft_training_args.model_name_or_path}")
     kwargs = sft_training_args.from_pretrained_kwargs(training_args)
