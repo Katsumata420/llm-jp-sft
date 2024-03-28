@@ -56,13 +56,18 @@ class DataCollatorForCompletionOnlyLMWithMultiTemplate(DataCollatorForLanguageMo
         self.ignore_index = ignore_index
 
     def torch_call(self, examples: List[Union[List[int], Any, Dict[str, Any]]]) -> Dict[str, Any]:
-        batch = super().torch_call(examples)
+        assert isinstance(examples[0], dict), "DataCollatorForCompletionOnlyLMWithMultiTemplate requires a list of dictionaries as input"
+        # hf model が使用する引数名は数年変化しないため、以下のように固定しても問題ない
+        # https://github.com/huggingface/trl/blob/v0.8.1/trl/trainer/sft_trainer.py#L466
+        model_used_columns = ["input_ids", "labels", "attention_mask"]
+        examples_removed_unused_columns = [{k: v for k, v in example.items() if k in model_used_columns} for example in examples]
+        batch = super().torch_call(examples_removed_unused_columns)
 
         if self.instruction_templates is None:
             for i in range(len(examples)):
                 response_token_ids_start_idx: Optional[int] = None
 
-                prompt_type = examples["prompt_type"][i]
+                prompt_type = examples[i]["prompt_type"]
                 target_template = self.responses_token_ids.get(prompt_type)
                 assert target_template is not None, f"Template '{prompt_type}' is not found"
 
@@ -91,7 +96,7 @@ class DataCollatorForCompletionOnlyLMWithMultiTemplate(DataCollatorForLanguageMo
                 response_token_ids_idxs: List[int] = []  # end idxs
                 human_token_ids_idxs: List[int] = []  # start idxs
 
-                prompt_type = examples["prompt_type"][i]
+                prompt_type = examples[i]["prompt_type"]
                 target_template = self.responses_token_ids.get(prompt_type)
                 assert target_template is not None, f"Template '{prompt_type}' is not found"
 
