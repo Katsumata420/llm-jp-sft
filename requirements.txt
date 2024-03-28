@@ -244,7 +244,7 @@ transformers==4.36.2
     #   trl
 triton==2.1.0
     # via torch
-trl==0.7.4
+trl==0.7.11
     # via -r requirements.in
 typing-extensions==4.9.0
     # via
