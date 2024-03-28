@@ -25,7 +25,7 @@ class DataCollatorForCompletionOnlyLMWithMultiTemplate(DataCollatorForLanguageMo
     def __init__(
         self,
         response_templates: Union[Dict[str, str], Dict[str, List[int]]],
-        instruction_templates: Optional[Union[Dict[str, str], Dict[str, List[int]]]] = None,
+        instruction_templates: Optional[Union[Dict[str, Optional[str]], Dict[str, Optional[List[int]]]]] = None,
         *args,
         mlm: bool = False,
         ignore_index: int = -100,
@@ -36,6 +36,14 @@ class DataCollatorForCompletionOnlyLMWithMultiTemplate(DataCollatorForLanguageMo
         self.instruction_templates = instruction_templates
         if isinstance(list(instruction_templates.values())[0], str):
             self.instructions_token_ids = {template_name: self.tokenizer.encode(template, add_special_tokens=False) for template_name, template in self.instruction_templates.items()}
+            self.instructions_token_ids = {
+                template_name: (
+                    self.tokenizer.encode(template, add_special_tokens=False)
+                    if template is not None
+                    else None
+                )
+                for template_name, template in self.instruction_templates.items()
+            }
         else:
             self.instructions_token_ids = instruction_templates
 
@@ -118,22 +126,36 @@ class DataCollatorForCompletionOnlyLMWithMultiTemplate(DataCollatorForLanguageMo
                     )
                     batch["labels"][i, :] = self.ignore_index
 
-                target_template = self.instructions_token_ids.get(prompt_type)
-                assert target_template is not None, f"Template '{prompt_type}' is not found"
+                # instruction template に関しては、設定上 None が許容されるため、try-except で処理
+                try:
+                    target_template = self.instructions_token_ids[prompt_type]
+                except KeyError:
+                    raise KeyError(f"Template '{prompt_type}' is not found")
 
                 # find instruction token ids
-                for human_idx in np.where(batch["labels"][i] == target_template[0])[0]:
-                    if target_template == batch["labels"][i][human_idx : human_idx + len(target_template)].tolist():
-                        human_token_ids_idxs.append(human_idx)
-
-                if len(human_token_ids_idxs) == 0:
+                if target_template is None:
                     warnings.warn(
-                        f"Could not find instruction key `{self.instruction_templates}` in the "
-                        f'following instance: {self.tokenizer.decode(batch["input_ids"][i])} '
-                        f"This instance will be ignored in loss calculation. "
-                        f"Note, if this happens often, consider increasing the `max_seq_length`."
+                        f"Could not find prompt template '{prompt_type}'."
+                        "This instance maybe single-turn conversation. "
+                        "If you want to use multi-turn conversation, please set the prompt template."
                     )
-                    batch["labels"][i, :] = self.ignore_index
+                    human_token_ids_idxs.append(0)
+                    assert len(human_token_ids_idxs) == len(
+                        response_token_ids_idxs
+                    ), "The number of instruction token ids and response token ids must be the same in the setting where the instruction template isn't found."
+                else:
+                    for human_idx in np.where(batch["labels"][i] == target_template[0])[0]:
+                        if target_template == batch["labels"][i][human_idx : human_idx + len(target_template)].tolist():
+                            human_token_ids_idxs.append(human_idx)
+
+                    if len(human_token_ids_idxs) == 0:
+                        warnings.warn(
+                            f"Could not find instruction key `{self.instruction_templates}` in the "
+                            f'following instance: {self.tokenizer.decode(batch["input_ids"][i])} '
+                            f"This instance will be ignored in loss calculation. "
+                            f"Note, if this happens often, consider increasing the `max_seq_length`."
+                        )
+                        batch["labels"][i, :] = self.ignore_index
 
                 if (
                     len(human_token_ids_idxs) > 0
