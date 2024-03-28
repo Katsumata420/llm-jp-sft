@@ -103,7 +103,7 @@ def load_datasets(data_files):
     for data_file in data_files:
         dataset = load_dataset("json", data_files=data_file)
         dataset = dataset["train"]
-        dataset = dataset.select_columns("text")
+        dataset = dataset.select_columns(["text", "prompt_type"])
         datasets.append(dataset)
     return concatenate_datasets(datasets)
 
