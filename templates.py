@@ -11,5 +11,5 @@ class PromptTemplate:
 TEMPLATES = {
     "alpaca": PromptTemplate(instruction_prefix="\n\n### 指示:\n", response_prefix="\n\n### 応答:\n"),
     "chat": PromptTemplate(instruction_prefix="USER:", response_prefix="\nASSISTANT:"),
-    "none": PromptTemplate(response_prefix="\n"),  # 真のプロンプトなし（空文字）は SFT の学習上、難しいというか入出力を切りたいので、改行だけ入れる
+    "none": PromptTemplate(response_prefix="fake token"),  # none の場合、Instruction Tuning として学習するのではなく、通常の CLM として学習する。そのため、response prefix も本来は不要だが、データ形式の都合上、ダミーのトークンを入れている。
 }

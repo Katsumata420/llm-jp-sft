@@ -76,6 +76,9 @@ class DataCollatorForCompletionOnlyLMWithMultiTemplate(DataCollatorForLanguageMo
                 response_token_ids_start_idx: Optional[int] = None
 
                 prompt_type = examples[i]["prompt_type"]
+                if prompt_type == "none":
+                    # if prompt_type is none, train the model as clm.
+                    continue
                 target_template = self.responses_token_ids.get(prompt_type)
                 assert target_template is not None, f"Template '{prompt_type}' is not found"
 
@@ -105,6 +108,9 @@ class DataCollatorForCompletionOnlyLMWithMultiTemplate(DataCollatorForLanguageMo
                 human_token_ids_idxs: List[int] = []  # start idxs
 
                 prompt_type = examples[i]["prompt_type"]
+                if prompt_type == "none":
+                    # if prompt_type is none, train the model as clm.
+                    continue
                 target_template = self.responses_token_ids.get(prompt_type)
                 assert target_template is not None, f"Template '{prompt_type}' is not found"
 
