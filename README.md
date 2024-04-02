@@ -30,14 +30,20 @@ pip install flash-attn --no-build-isolation
 A sample dataset is provided in `data/`. A training example is structured as follows:
 
 ```json
-{"text": "### 指示：以下の質問に答えなさい。 ### 質問：日本で一番高い山は？ ### 回答：富士山"}
+{"text": "### 指示：以下の質問に答えなさい。 ### 質問：日本で一番高い山は？ ### 回答：富士山", "prompt_type": "alpaca"}
 ```
 
 During training, loss calculation is focused on tokens post the "### 回答：" segment. For the above example, the loss will be based on "富士山".
 
+Currently available `prompt_type` are listed in `template.TEMPLATE`.
+
+（If you are using a single prompt template, `prompt_type` attribute is not necessary.）
+
 ## Training
 
 Here is the command to train a model on the sample dataset.
+
+### Single Prompt Type
 
 ```bash
 python train.py \
@@ -49,6 +55,22 @@ python train.py \
     --data_files data/example.jsonl \
     --model_name_or_path llm-jp/llm-jp-1.3b-v1.0 \
     --output_dir results/
+```
+
+### Multi Prompt Type
+
+```bash
+python train.py \
+    --num_train_epochs 1 \
+    --per_device_train_batch_size 1 \
+    --learning_rate 1e-5 \
+    --warmup_ratio 0.1 \
+    --lr_scheduler_type cosine \
+    --data_files data/example.jsonl \
+    --model_name_or_path llm-jp/llm-jp-1.3b-v1.0 \
+    --output_dir results/ \
+    --templates alpaca chat none \
+    --no_remove_unused_columns
 ```
 
 ## To Reproduce LLM-jp Models
