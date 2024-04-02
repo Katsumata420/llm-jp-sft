@@ -35,7 +35,7 @@ A sample dataset is provided in `data/`. A training example is structured as fol
 
 During training, loss calculation is focused on tokens post the "### 回答：" segment. For the above example, the loss will be based on "富士山".
 
-Currently available `prompt_type` are listed in `template.TEMPLATE`.
+Currently available `prompt_type` are listed in `templates.TEMPLATES`.
 
 （If you are using a single prompt template, `prompt_type` attribute is not necessary.）
 
