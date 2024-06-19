@@ -18,9 +18,21 @@ likeart_scale = 5
 
 def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--oasst_train_data", type=str, required=True, help="message_id が付与された状態の llm-jp-tuning-data 出力（train）")
-    parser.add_argument("--oasst_dev_data", type=str, required=True, help="message_id が付与された状態の llm-jp-tuning-data 出力（dev）")
-    parser.add_argument("--id2label_file", type=str, required=True, help="message_id から label への変換辞書")
+    parser.add_argument(
+        "--oasst_train_data",
+        type=str,
+        required=True,
+        help="message_id が付与された状態の llm-jp-tuning-data 出力（train）",
+    )
+    parser.add_argument(
+        "--oasst_dev_data",
+        type=str,
+        required=True,
+        help="message_id が付与された状態の llm-jp-tuning-data 出力（dev）",
+    )
+    parser.add_argument(
+        "--id2label_file", type=str, required=True, help="message_id から label への変換辞書"
+    )
     parser.add_argument("--output_file", type=str, default="steerlm_data.jsonl")
     return parser.parse_args()
 
@@ -49,6 +61,7 @@ def build_sample(data: list[dict], id2label: dict) -> list[dict]:
     Returns:
         list[dict]: SteerLM の Attribute Prediction Model 用のデータ
     """
+
     def format_label(raw_label: Optional[dict]) -> Optional[dict]:
         """oasst のラベルを steerlm のラベルに変換する
 
@@ -83,12 +96,16 @@ def build_sample(data: list[dict], id2label: dict) -> list[dict]:
                 if message_id not in id2label:
                     continue
                 label = id2label[message_id]
-                messages_with_label.append({
-                    "role": message["role"],
-                    "content": message["content"],
-                    "label": format_label(label),
-                })
-        if len(messages_with_label) == len(sample["messages"]) - 1:  # exclude system message
+                messages_with_label.append(
+                    {
+                        "role": message["role"],
+                        "content": message["content"],
+                        "label": format_label(label),
+                    }
+                )
+        if (
+            len(messages_with_label) == len(sample["messages"]) - 1
+        ):  # exclude system message
             samples_with_label.append(messages_with_label)
     return samples_with_label
 

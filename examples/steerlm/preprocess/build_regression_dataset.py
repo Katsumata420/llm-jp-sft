@@ -24,7 +24,12 @@ def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_file", type=str, required=True)
     parser.add_argument("--output_file", type=str, default="steerlm_data.jsonl")
-    parser.add_argument("--ignore_label_value", default=-100, type=int, help="ラベルが存在しない場合の値（回帰モデル学習の際にはこの値で mask する）")
+    parser.add_argument(
+        "--ignore_label_value",
+        default=-100,
+        type=int,
+        help="ラベルが存在しない場合の値（回帰モデル学習の際にはこの値で mask する）",
+    )
     return parser.parse_args()
 
 
@@ -47,7 +52,9 @@ def build_regression_dataset(samples: list, ignore_label_value: int) -> list:
         """
         llm_input = SYSTEM_MESSAGE
         for idx in range(0, len(data), 2):
-            llm_input += PROMPT_TEMPLATE_WO_SYSTEM.format(input_text=data[idx]["content"], answer=data[idx + 1]["content"])
+            llm_input += PROMPT_TEMPLATE_WO_SYSTEM.format(
+                input_text=data[idx]["content"], answer=data[idx + 1]["content"]
+            )
         return llm_input
 
     def build_regression_label(label: dict) -> list[int]:
@@ -84,7 +91,9 @@ def build_regression_dataset(samples: list, ignore_label_value: int) -> list:
                     # label が存在しない場合は skip
                     continue
                 llm_input = build_llm_input(temp_data)
-                regression_dataset.append({"text": llm_input, "label": build_regression_label(label)})
+                regression_dataset.append(
+                    {"text": llm_input, "label": build_regression_label(label)}
+                )
 
     return regression_dataset
 

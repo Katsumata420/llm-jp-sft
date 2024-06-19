@@ -36,13 +36,17 @@ def build_samples(dataset) -> list[dict]:
         verbosity = data["verbosity"]
         turns = [
             {"role": "user", "content": prompt, "label": None},
-            {"role": "assistant", "content": response, "label": {
-                "helpfulness": helpfulness,
-                "correctness": correctness,
-                "coherence": coherence,
-                "complexity": complexity,
-                "verbosity": verbosity
-            }}
+            {
+                "role": "assistant",
+                "content": response,
+                "label": {
+                    "helpfulness": helpfulness,
+                    "correctness": correctness,
+                    "coherence": coherence,
+                    "complexity": complexity,
+                    "verbosity": verbosity,
+                },
+            },
         ]
         samples.append(turns)
     return samples
