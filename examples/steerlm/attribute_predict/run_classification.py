@@ -28,6 +28,7 @@ import evaluate
 import numpy as np
 from datasets import Value, load_dataset
 
+from peft import LoraConfig, get_peft_model
 import transformers
 from transformers import (
     AutoConfig,
@@ -563,6 +564,20 @@ def main():
         trust_remote_code=model_args.trust_remote_code,
         ignore_mismatched_sizes=model_args.ignore_mismatched_sizes,
     )
+
+    if model_args.use_lora:
+        lora_config = LoraConfig(
+            r=model_args.lora_r,
+            lora_alpha=model_args.lora_alpha,
+            lora_dropout=model_args.lora_dropout,
+            target_modules=model_args.lora_target_modules,
+            fan_in_fan_out=True,
+            bias="none",
+            task_type="SEQ_CLS",
+        )
+        model = get_peft_model(model, lora_config)
+    else:
+        lora_config = None
 
     # Padding strategy
     if data_args.pad_to_max_length:
