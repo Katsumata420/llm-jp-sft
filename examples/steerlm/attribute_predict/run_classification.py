@@ -191,15 +191,14 @@ class DataTrainingArguments:
 
     def __post_init__(self):
         if self.dataset_name is None:
-            if self.train_file is None or self.validation_file is None:
-                raise ValueError(" training/validation file or a dataset name.")
-
-            train_extension = self.train_file.split(".")[-1]
-            assert train_extension in ["csv", "json"], "`train_file` should be a csv or a json file."
-            validation_extension = self.validation_file.split(".")[-1]
-            assert (
-                validation_extension == train_extension
-            ), "`validation_file` should have the same extension (csv or json) as `train_file`."
+            if self.train_file is not None:
+                train_extension = self.train_file.split(".")[-1]
+                assert train_extension in ["csv", "json", "jsonl"], "`train_file` should be a csv or a json file."
+            if self.train_file is not None and self.validation_file is not None:
+                validation_extension = self.validation_file.split(".")[-1]
+                assert (
+                    validation_extension == train_extension
+                ), "`validation_file` should have the same extension (csv or json) as `train_file`."
 
 
 @dataclass
@@ -406,8 +405,11 @@ def main():
             else:
                 raise ValueError("Need either a dataset name or a test file for `do_predict`.")
 
-        for key in data_files.keys():
-            logger.info(f"load a local file for {key}: {data_files[key]}")
+        if type(data_files) is dict:
+            for key in data_files.keys():
+                logger.info(f"load a local file for {key}: {data_files[key]}")
+        elif type(data_files) is str:
+            logger.info(f"load a local file: {data_files}")
 
         if data_args.train_file.endswith(".csv"):
             # Loading a dataset from local csv files
@@ -427,7 +429,8 @@ def main():
             )
             if data_args.validation_file is None:
                 # split raw_datasets into train and validation
-                raw_datasets = raw_datasets.train_test_split(test_size=0.1)
+                raw_datasets = raw_datasets["train"].train_test_split(test_size=0.1)
+        logger.info(f"Dataset loaded: {raw_datasets}")
 
     # See more about loading any type of standard or custom dataset at
     # https://huggingface.co/docs/datasets/loading_datasets.
@@ -475,7 +478,7 @@ def main():
         label_list = None
         num_labels = 1
         for split in raw_datasets:
-            num_labels = max(num_labels, len(raw_datasets[split]["label"]))
+            num_labels = max(num_labels, len(raw_datasets[split][0]["label"]))
             break
         # regession requires float as label type, let's cast it if needed
         """
@@ -536,6 +539,7 @@ def main():
         trust_remote_code=model_args.trust_remote_code,
     )
 
+    logger.info(f"num_label: {num_labels}")
     if is_regression:
         config.problem_type = "regression"
         logger.info("setting problem type to regression")
@@ -648,6 +652,7 @@ def main():
         if "train" not in raw_datasets:
             raise ValueError("--do_train requires a train dataset.")
         train_dataset = raw_datasets["train"]
+        logger.info(f"train data have {train_dataset.column_names} attributes")
         if data_args.shuffle_train_dataset:
             logger.info("Shuffling the training dataset")
             train_dataset = train_dataset.shuffle(seed=data_args.shuffle_seed)
