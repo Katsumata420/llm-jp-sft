@@ -26,6 +26,7 @@ from typing import List, Optional
 import datasets
 import evaluate
 import numpy as np
+import torch
 from datasets import Value, load_dataset
 
 from peft import LoraConfig, get_peft_model
@@ -45,7 +46,7 @@ from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
-from .model import AttributePredictor
+from model import AttributePredictor
 
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
@@ -274,6 +275,10 @@ class ModelArguments:
     lora_dropout: float = field(
         default=0.05,
         metadata={"help": "The dropout parameter for LoRA training."},
+    )
+    attn_implementation: str = field(
+        default="eager",
+        metadata={"help": "The implementation of attention mechanism."},
     )
 
     def __post_init__(self):
@@ -558,6 +563,12 @@ def main():
         token=model_args.token,
         trust_remote_code=model_args.trust_remote_code,
     )
+    if training_args.bf16:
+        torch_type = torch.bfloat16
+    elif training_args.fp16:
+        torch_type = torch.float16
+    else:
+        torch_type = torch.float32
     model = AttributePredictor.from_pretrained(
         model_args.model_name_or_path,
         from_tf=bool(".ckpt" in model_args.model_name_or_path),
@@ -567,6 +578,8 @@ def main():
         token=model_args.token,
         trust_remote_code=model_args.trust_remote_code,
         ignore_mismatched_sizes=model_args.ignore_mismatched_sizes,
+        torch_dtype=torch_type,
+        attn_implementation=model_args.attn_implementation,
     )
 
     if model_args.use_lora:
@@ -579,6 +592,13 @@ def main():
             bias="none",
             task_type="SEQ_CLS",
         )
+        if training_args.gradient_checkpointing:
+            for param in model.parameters():
+                param.requires_grad = False
+                if param.ndim == 1:
+                    param.data = param.data.to(torch.float32)
+            model.gradient_checkpointing_enable()
+            model.enable_input_require_grads()
         model = get_peft_model(model, lora_config)
     else:
         lora_config = None
@@ -740,7 +760,7 @@ def main():
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
         eval_dataset=eval_dataset if training_args.do_eval else None,
-        compute_metrics=compute_metrics,
+        compute_metrics=None,
         tokenizer=tokenizer,
         data_collator=data_collator,
     )

@@ -6,12 +6,13 @@ MODEL_NAME=$3
 
 BATCH_SIZE=32
 GRAD_ACCUM=1
+LENGTH=2048
 
 export WANDB_ENTITY_NAME=
 export WANDB_PROJECT_NAME=
 export HF_HOME=
 
-python -m attribute_predict.run_classification \
+deepspeed attribute_predict/run_classification.py \
     --train_file $INPUT_DATA_PATH \
     --output_dir $OUTPUT_DATA_PATH \
     --model_name_or_path $MODEL_NAME \
@@ -29,10 +30,15 @@ python -m attribute_predict.run_classification \
     --use_lora \
     --fp16 \
     --lora_target_model llama \
-    --lora_r 8 \
-    --lora_alpha 16 \
+    --lora_r 16 \
+    --lora_alpha 32 \
     --do_regression \
     --eval_strategy steps \
     --load_best_model_at_end \
-    --metric_for_best_model eval_mse \
-    --text_column_name text
+    --metric_for_best_model eval_loss \
+    --text_column_name text \
+    --eval_steps 100 \
+    --deepspeed ds_config.json \
+    --max_seq_length $LENGTH \
+    --gradient_checkpointing \
+    --max_eval_samples 1000
