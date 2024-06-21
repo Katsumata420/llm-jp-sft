@@ -15,7 +15,7 @@
 ]
 
 Examples:
-    $ python -m attribute_predict.run_inference \
+    $ python -m steer_lm_hf.attribute_predict.run_inference \
         --input_file helpsteer_data.jsonl \
         --output_file helpsteer_data_with_attribute.jsonl \
         --model_name_or_id "kunishou/steerlm-ja-attribute-predictor" \
@@ -30,7 +30,7 @@ import torch
 from peft import PeftModel
 from transformers import AutoTokenizer
 
-from model import AttributePredictor, IGNORE_LABEL_VALUE
+from .model import AttributePredictor, IGNORE_LABEL_VALUE
 from ..preprocess.build_regression_dataset import SYSTEM_MESSAGE, USER_PREFIX, ASSISTANT_PREFIX
 from ..preprocess.common import STEERLM_LABELS
 
@@ -140,7 +140,7 @@ def run_inference(inference_model: AttributePredictorInference, loaded_data: lis
                 assert len(predict_result) == len(STEERLM_LABELS)
                 attribute_dict = {attr: round(value) for attr, value in zip(STEERLM_LABELS, predict_result)}
 
-                if turn["label"] is None:
+                if "label" not in turn or turn["label"] is None:
                     inference_result.append({
                         "role": "assistant",
                         "content": turn["content"],
