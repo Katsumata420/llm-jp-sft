@@ -76,9 +76,9 @@ def stats_labels(data: list[dict]) -> dict:
         total = sum(value_counts.values())
         label_stats[label] = {value: stats(count, count / total) for value, count in value_counts.items()}
 
-    for label, stats in label_stats.items():
+    for label, stats in sorted(label_stats.items(), key=lambda x: x[0]):
         print(f"Label: {label}")
-        for value, stat in stats.items():
+        for value, stat in sorted(stats.items(), key=lambda x: x[0]):
             print(f"  {value}: {stat.count} ({stat.ratio:.2%})")
     return label_stats
 
