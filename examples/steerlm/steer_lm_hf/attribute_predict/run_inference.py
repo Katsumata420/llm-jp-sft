@@ -28,6 +28,7 @@ from typing import Optional
 
 import torch
 from peft import PeftModel
+from tqdm import tqdm
 from transformers import AutoTokenizer, AutoConfig
 
 from .model import AttributePredictor, IGNORE_LABEL_VALUE
@@ -129,7 +130,7 @@ def run_inference(inference_model: AttributePredictorInference, loaded_data: lis
     for sample in loaded_data:
         inference_result = []
         llm_input = SYSTEM_MESSAGE
-        for turn_idx, turn in enumerate(sample):
+        for turn_idx, turn in tqdm(enumerate(sample)):
             if turn_idx % 2 == 0:
                 assert turn["role"] == "user"
             else:
