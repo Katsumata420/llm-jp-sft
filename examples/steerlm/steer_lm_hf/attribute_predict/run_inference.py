@@ -28,7 +28,7 @@ from typing import Optional
 
 import torch
 from peft import PeftModel
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, AutoConfig
 
 from .model import AttributePredictor, IGNORE_LABEL_VALUE
 from ..preprocess.build_regression_dataset import SYSTEM_MESSAGE, USER_PREFIX, ASSISTANT_PREFIX
@@ -44,6 +44,7 @@ class AttributePredictorInference:
         n_batch: int = 8,
         torch_dtype: str = "fp32",
         model_max_length: int = 2048,
+        config_path: Optional[str] = None,
     ) -> None:
         if torch_dtype == "fp16":
             self.dtype = torch.float16
@@ -54,7 +55,13 @@ class AttributePredictorInference:
         else:
             raise ValueError(f"Unsupported torch_dtype: {torch_dtype}")
 
-        model = AttributePredictor.from_pretrained(model_id_or_name, torch_dtype=self.dtype)
+        if config_path is not None:
+            config = AutoConfig.from_pretrained(config_path)
+        else:
+            config = None
+        model = AttributePredictor.from_pretrained(model_id_or_name, torch_dtype=self.dtype, config=config)
+        print(model)
+
         if lora_adapter is not None:
             self.model = PeftModel.from_pretrained(model, lora_adapter)
         else:
@@ -76,7 +83,7 @@ class AttributePredictorInference:
         results = []
         for i in range(0, len(texts), self.n_batch):
             batch_texts = texts[i:i + self.n_batch]
-            inputs = self.tokenizer(batch_texts, return_tensors="pt", padding=True, truncation=True, max_length=self.max_length)
+            inputs = self.tokenizer(batch_texts, return_tensors="pt", padding=True, truncation=True, max_length=self.max_length, return_token_type_ids=False)
             inputs = {k: v.to(self.device) for k, v in inputs.items()}
             with torch.no_grad():
                 outputs = self.model(**inputs)
@@ -98,6 +105,7 @@ def get_args() -> argparse.Namespace:
     parser.add_argument("--batch_size", type=int, default=1, help="推論時のバッチサイズですが、今回は single で推論を行うため 1 にしています")
     parser.add_argument("--torch_dtype", type=str, default="fp32")
     parser.add_argument("--max_token_length", type=int, default=2048, help="入力テキストの最大トークン長")
+    parser.add_argument("--config_path", type=str, default=None, help="モデルの config_path")
     return parser.parse_args()
 
 
@@ -164,7 +172,9 @@ def run_inference(inference_model: AttributePredictorInference, loaded_data: lis
 def main():
     args = get_args()
 
-    inference_model = AttributePredictorInference(args.model_name_or_id, args.lora_adapter, args.batch_size, args.torch_dtype, args.max_token_length)
+    inference_model = AttributePredictorInference(
+        args.model_name_or_id, args.lora_adapter, args.batch_size, args.torch_dtype, args.max_token_length, args.config_path
+    )
     loaded_data = load_data(args.input_file)
     results = run_inference(inference_model, loaded_data)
 
