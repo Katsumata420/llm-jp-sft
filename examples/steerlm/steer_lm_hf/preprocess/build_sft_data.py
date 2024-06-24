@@ -1,6 +1,7 @@
 """AttributePredictor で作成したデータをもとに SFT データを作成するスクリプト"""
 import argparse
 import json
+from collections import defaultdict, namedtuple
 from typing import Optional
 
 from .build_regression_dataset import SYSTEM_MESSAGE, USER_PREFIX, ASSISTANT_PREFIX
@@ -10,6 +11,7 @@ def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_file", type=str, required=True)
     parser.add_argument("--output_file", type=str, required=True)
+    parser.add_argument("--verbose", "-v", action="store_true", help="冗長な出力、特に各ラベルごとの統計情報を表示する")
     return parser.parse_args()
 
 
@@ -53,10 +55,40 @@ def build_sft_data(input_data: list[dict]) -> list[dict]:
     return sft_data
 
 
+def stats_labels(data: list[dict]) -> dict:
+    """ラベルごとの統計情報を表示する
+
+    Returns:
+        dict: ラベルごとの統計情報（key: label, value: {label_value: namedtuple(count, ratio)}）
+    """
+    stats = namedtuple("Stats", ["count", "ratio"])
+
+    label_stats = defaultdict(dict)
+    for sample in data:
+        for turn in sample:
+            if turn["role"] == "assistant":
+                for label, value in turn["label"].items():
+                    if label not in label_stats:
+                        label_stats[label] = defaultdict(int)
+                    label_stats[label][value] += 1
+
+    for label, value_counts in label_stats.items():
+        total = sum(value_counts.values())
+        label_stats[label] = {value: stats(count, count / total) for value, count in value_counts.items()}
+
+    for label, stats in label_stats.items():
+        print(f"Label: {label}")
+        for value, stat in stats.items():
+            print(f"  {value}: {stat.count} ({stat.ratio:.2%})")
+    return label_stats
+
+
 def main():
     args = get_args()
 
     input_data = load_data(args.input_file)
+    if args.verbose:
+        stats_labels(input_data)
 
     sft_data = build_sft_data(input_data)
 
