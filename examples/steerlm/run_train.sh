@@ -12,7 +12,7 @@ export WANDB_ENTITY_NAME=
 export WANDB_PROJECT_NAME=
 export HF_HOME=
 
-deepspeed attribute_predict/run_classification.py \
+deepspeed stter_lm_hf/attribute_predict/run_classification.py \
     --train_file $INPUT_DATA_PATH \
     --output_dir $OUTPUT_DATA_PATH \
     --model_name_or_path $MODEL_NAME \
