@@ -44,7 +44,7 @@ def get_args() -> argparse.Namespace:
     parser.add_argument(
         "output_path", type=str, help="推論結果の出力先のパス"
     )
-    parser.add_argument("analysis_id", type=str, help="解析対象の ID が格納されたファイルパス")
+    parser.add_argument("--analysis_id", type=str, default=None, help="解析対象の ID が格納されたファイルパス")
     parser.add_argument("--is_lora", action="store_true", help="LoRAのデータかどうか")
     # generation config
     parser.add_argument("--do_sample", action="store_true", help="サンプリングするかどうか")
@@ -54,7 +54,7 @@ def get_args() -> argparse.Namespace:
     parser.add_argument("--repetition_penalty", type=float, default=1.05, help="トークンの繰り返しペナルティ")
     # output config
     parser.add_argument("--model_name_aka", type=str, default="", help="モデルの名前")
-    parser.add_argument("--prompt_type", type=str, choices=["alpaca", "chat", "inst", "none"], default="alpaca")
+    parser.add_argument("--prompt_type", type=str, choices=["alpaca", "chat", "inst", "none", "alpaca-steerlm"], default="alpaca")
     # wandb config
     parser.add_argument("--is_wandb", action="store_true", help="wandb に保存するかどうか")
     parser.add_argument("--wandb_config_json", type=str, help="wandb に使用する config ファイル", default=None)
@@ -171,9 +171,13 @@ def main():
     with open(args.input_path, "r") as f:
         original_data = json.load(f)
 
-    with open(args.analysis_id, "r") as f:
-        _ids_data = json.load(f)
-        analysis_ids = [d["ID"] for d in _ids_data]
+    if args.analysis_id is not None:
+        with open(args.analysis_id, "r") as f:
+            _ids_data = json.load(f)
+            analysis_ids = [d["ID"] for d in _ids_data]
+    else:
+        assert not args.is_wandb, "wandb に保存する場合は analysis_id を指定してください"
+        analysis_ids = None
 
     prompt_format = get_prompt_format(args.prompt_type)
 
