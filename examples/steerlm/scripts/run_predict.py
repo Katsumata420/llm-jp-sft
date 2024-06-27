@@ -209,14 +209,17 @@ def main():
             output = output[input_ids.size(1):]
 
             output_text = tokenizer.decode(output.tolist(), skip_special_tokens=True)
-            output_llm_outputs.append({
+            llm_output = {
                 "ID": sample["ID"],
                 "model": args.model_name_aka if args.model_name_aka != "" else args.model_path,
                 "input-text": sample["text"],
                 "input-prompt": input_text,
                 "output": output_text,
                 "reference": sample["output"],
-            })
+            }
+            if args.prompt_type == "alpaca-steerlm":
+                llm_output["label"] = sample["label"]
+            output_llm_outputs.append(llm_output)
 
     with open(args.output_path, "w") as f:
         for sample in output_llm_outputs:
@@ -228,7 +231,10 @@ def main():
             with open(args.wandb_config_json, "r") as f:
                 wandb_config = json.load(f)
         else:
-            wandb_config = None
+            wandb_config = {}
+        # add label info
+        if args.prompt_type == "alpaca-steerlm":
+            wandb_config["steerlm_label_value"] = original_data[0]["label"]
         save_wandb(output_llm_outputs, analysis_ids, wandb_config)
 
 
