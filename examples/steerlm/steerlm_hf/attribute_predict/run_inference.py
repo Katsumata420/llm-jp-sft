@@ -18,7 +18,7 @@ Examples:
     $ python -m steer_lm_hf.attribute_predict.run_inference \
         --input_file helpsteer_data.jsonl \
         --output_file helpsteer_data_with_attribute.jsonl \
-        --model_name_or_id "kunishou/steerlm-ja-attribute-predictor" \
+        --model_name_or_id "/path/to/Attribute_predictor" \
         --batch_size 1 \
         --torch_dtype "bf16"
 """

@@ -24,12 +24,11 @@ from sudachipy import Dictionary, SplitMode
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-from steer_lm_hf.preprocess.common import STEERLM_LABELS
+from steerlm_hf.preprocess.common import STEERLM_LABELS
 
 
 WANDB_ENTITY_NAME=
 PROJECT_NAME=
-FONT="/path/to/font/NotoSansJP/static/NotoSansJP-Regular.ttf"
 EXCLUDE_POS=["助詞", "助動詞", "補助記号"]
 TOP=30
 

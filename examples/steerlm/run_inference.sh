@@ -6,7 +6,7 @@ INPUT_DATA=$1
 OUTPUT_PATH=$2
 PEFT_PATH=$3
 
-python -m steer_lm_hf.attribute_predict.run_inference \
+python -m steerlm_hf.attribute_predict.run_inference \
   --input_file $INPUT_DATA \
   --output_file $OUTPUT_PATH \
   --model_name_or_id $BASE_MODEL \
