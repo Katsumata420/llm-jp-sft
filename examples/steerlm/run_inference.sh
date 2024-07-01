@@ -12,4 +12,5 @@ python -m steerlm_hf.attribute_predict.run_inference \
   --model_name_or_id $BASE_MODEL \
   --lora_adapter $PEFT_PATH \
   --batch_size 1 \
-  --torch_dtype bf16
+  --torch_dtype bf16 \
+  --config $PEFT_PATH  # PEFT_PATH 以下に config.json がある想定

@@ -11,6 +11,29 @@
       - 単語の頻度
         - 単語と頻度のペア
         - top-30 単語
+
+Examples:
+    >>> python -m scripts.run_predict \
+        /path/to/model \
+        /path/to/input \
+        /path/to/output \
+        --is_lora \
+        --do_sample \
+        --prompt_type alpaca-steerlm
+
+なお、この際の入力データは次のような形式を想定している
+```json
+[
+    {
+        "ID": "id",
+        "text": "input text",
+        "output": "output text",
+        "label": {
+            "label_name": "label_value"
+        }
+    }
+]
+```
 """
 import argparse
 import json
