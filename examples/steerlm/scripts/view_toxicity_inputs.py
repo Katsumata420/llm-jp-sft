@@ -15,14 +15,24 @@ import json
 
 # In the OASST's paper, see the hate_speech, not_appropriate, sextual_content as toxicity labels.
 # We add the PII as a toxicity label.
-OASST_TOXICITY_BINARY_LABELS = {"hate_speech", "not_appropriate", "sextual_content", "pii"}
+OASST_TOXICITY_BINARY_LABELS = {
+    "hate_speech",
+    "not_appropriate",
+    "sextual_content",
+    "pii",
+}
 OASST_TOXICITY_FIVE_SCALE_LABEL = "toxicity"
 
 
 def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_file", required=True)
-    parser.add_argument("--use_toxicity_label", nargs="*", choices=OASST_TOXICITY_BINARY_LABELS, default=[])
+    parser.add_argument(
+        "--use_toxicity_label",
+        nargs="*",
+        choices=OASST_TOXICITY_BINARY_LABELS,
+        default=[],
+    )
     parser.add_argument("--toxicity_threshold", type=int, default=6)
     parser.add_argument("--output_file", default="extracted_user_input.jsonl")
     return parser.parse_args()
@@ -72,7 +82,9 @@ def extract_user_input(
                 label = turn["label"]
                 is_toxicity = check_label(label)
                 if is_toxicity:
-                    extracted_user_input.append({"user_input": user_input, "label": label})
+                    extracted_user_input.append(
+                        {"user_input": user_input, "label": label}
+                    )
             else:
                 continue
 
@@ -85,7 +97,9 @@ def main():
 
     samples = load_samples(args.input_file)
 
-    extracted_user_input = extract_user_input(samples, args.use_toxicity_label, args.toxicity_threshold, is_first_turn=True)
+    extracted_user_input = extract_user_input(
+        samples, args.use_toxicity_label, args.toxicity_threshold, is_first_turn=True
+    )
 
     print(f"Extracted {len(extracted_user_input)} user inputs")
     with open(args.output_file, "w") as f:
