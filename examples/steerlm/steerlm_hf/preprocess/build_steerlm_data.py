@@ -34,6 +34,12 @@ def get_args() -> argparse.Namespace:
         "--id2label_file", type=str, required=True, help="message_id から label への変換辞書"
     )
     parser.add_argument("--output_file", type=str, default="steerlm_data.jsonl")
+    parser.add_argument(
+        "--output_label_type",
+        default="steerlm",
+        choices=["steerlm", "all"],
+        help="出力されるラベルの状態（steerlm の場合は学習に必要な項目のみ付与し、all だとそのまま付与）",
+    )
     return parser.parse_args()
 
 
@@ -42,7 +48,9 @@ def load_id2label(file_path: str) -> dict:
         return json.load(f)
 
 
-def build_sample(data: list[dict], id2label: dict) -> list[dict]:
+def build_sample(
+    data: list[dict], id2label: dict, output_label_type: str
+) -> list[dict]:
     """SteerLM の Attribute Prediction Model 用のデータを作成する
 
     Args:
@@ -95,12 +103,19 @@ def build_sample(data: list[dict], id2label: dict) -> list[dict]:
                 message_id = message["message_id"]
                 if message_id not in id2label:
                     continue
+
                 label = id2label[message_id]
+                if output_label_type == "steerlm":
+                    output_label = format_label(label)
+                elif output_label_type == "all":
+                    output_label = label
+                else:
+                    raise NotImplementedError()
                 messages_with_label.append(
                     {
                         "role": message["role"],
                         "content": message["content"],
-                        "label": format_label(label),
+                        "label": output_label,
                     }
                 )
         if (
@@ -118,7 +133,7 @@ def main():
     dev_data = load_id2label(args.oasst_dev_data)
     oasst_data = train_data + dev_data
 
-    samples_with_labels = build_sample(oasst_data, id2label)
+    samples_with_labels = build_sample(oasst_data, id2label, args.output_label_type)
 
     with open(args.output_file, "w") as f:
         for sample in samples_with_labels:

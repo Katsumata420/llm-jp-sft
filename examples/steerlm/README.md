@@ -186,3 +186,60 @@ $ python -m scripts.run_predict \
 
 
 /path/to/steerlm/sft/results/AnswerCarefully001_Test_with_label.json に結果が出力されます。
+
+## OASST から有害な入力テキストを抽出する
+上記で記載した SteerLM の Preprocess を流用して、OASST-1/2 のデータから有害な入力テキストを抽出することができます。
+
+以下のスクリプトを利用してください。
+
+```bash
+# oasst1
+$ python -m steerlm_hf.preprocess.get_oasst_id2label \
+    --dataset OpenAssistant/oasst1 \
+    --output_file /path/to/steerlm/data/attribute_prediction/temp/oasst1_id2label.json
+$ python -m steerlm_hf.preprocess.build_steerlm_data \
+    --oasst_train_data /path/to/tuning_data/train/oasst1_ja.json \
+    --oasst_dev_data /path/to/tuning_data/dev/oasst1_ja.json \
+    --id2label_file /path/to/steerlm/data/attribute_prediction/temp/oasst1_id2label.json \
+    --output_file /path/to/steerlm/data/toxicity_input/oasst1_data.jsonl \
+    --output_label_type all
+# oasst2
+$ python -m steerlm_hf.preprocess.get_oasst_id2label \
+    --dataset OpenAssistant/oasst2 \
+    --output_file /path/to/steerlm/data/attribute_prediction/temp/oasst2_id2label.json
+$ python -m steerlm_hf.preprocess.build_steerlm_data \
+    --oasst_train_data /path/to/tuning_data/train/oasst2_ja.json \
+    --oasst_dev_data /path/to/tuning_data/dev/oasst2_ja.json \
+    --id2label_file /path/to/steerlm/data/attribute_prediction/temp/oasst2_id2label.json \
+    --output_file /path/to/steerlm/data/toxicity_input/oasst2_data.jsonl \
+    --output_label_type all
+```
+
+大きい変更点として、 `steerlm/preprocess/build_steerlm_data.py` の実行時に `output_label_type` として `all` を指定すると、全てのラベルを出力するようになります。
+
+このようにして得られたデータについて、以下のスクリプトを実行することで、有害な入力テキストを抽出することができます。
+
+下記のスクリプトでは、 `hate_speech`, `not_appropriate`, `sextual_content`, `pii` のラベルdどれか一つ以上が付与されている、または `toxicity` が0から4の5段階中3以上のものを抽出しています。
+
+```bash
+# oasst1
+$ python scripts/view_toxicity_inputs.py \
+    --input_file /path/to/steerlm/data/toxicity_input/oasst1_data.jsonl \  # 有害性のラベルが付与されているデータ
+    --use_toxicity_label hate_speech not_appropriate sextual_content pii \
+    --toxicity_threshold 3 \  # 有害性が0-4の5段階中、3以上の応答
+    --output_file /path/to/steerlm/data/toxicity_input/oasst1_toxicity_inputs_all-binary_toxicity3.jsonl
+# oasst2
+$ python scripts/view_toxicity_inputs.py \
+    --input_file /path/to/steerlm/data/toxicity_input/oasst2_data.jsonl \  # 有害性のラベルが付与されているデータ
+    --use_toxicity_label hate_speech not_appropriate sextual_content pii \
+    --toxicity_threshold 3 \  # 有害性が0-4の5段階中、3以上の応答
+    --output_file /path/to/steerlm/data/toxicity_input/oasst2_toxicity_inputs_all-binary_toxicity3.jsonl
+```
+
+重複削除のため、最後に以下のスクリプトを実行することで有害な入力テキストを抽出することができます。
+
+```bash
+$ cat /path/to/steerlm/data/toxicity_input/oasst1_toxicity_inputs_all-binary_toxicity3.jsonl \
+    /path/to/steerlm/data/toxicity_input/oasst2_toxicity_inputs_all-binary_toxicity3.jsonl \
+    | sort | uniq > /path/to/steerlm/data/toxicity_input/oasst_toxicity_inputs_all-binary_toxicity3.jsonl
+```
